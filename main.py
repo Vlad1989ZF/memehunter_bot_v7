@@ -7,14 +7,14 @@ import requests
 import logging
 
 # ———— 配置 —————
-BOT_TOKEN = os.getenv("7415348809:AAFsZdHeUffpdiEOfUuONEna72otR4m2G38")
-CHAT_ID   = os.getenv("6945714975")
-FEEDS_URL = os.getenv("https://apigatewaydebugv2-production.up.railway.app/api/feeds")
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 60))  # 秒
+BOT_TOKEN     = os.getenv("BOT_TOKEN")
+CHAT_ID       = os.getenv("CHAT_ID")
+FEEDS_URL     = os.getenv("FEEDS_URL")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 60))
 
 if not all([BOT_TOKEN, CHAT_ID, FEEDS_URL]):
     raise RuntimeError("需要设置 BOT_TOKEN、CHAT_ID、FEEDS_URL 三个环境变量")
-
+    
 BASE_TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 SEND_API = BASE_TELEGRAM_URL + "/sendMessage"
 
