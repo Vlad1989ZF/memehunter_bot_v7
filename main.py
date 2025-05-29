@@ -6,6 +6,11 @@ import time
 import requests
 import logging
 
+print("BOT_TOKEN:", repr(os.getenv("BOT_TOKEN")))
+print("CHAT_ID:", repr(os.getenv("CHAT_ID")))
+print("FEEDS_URL:", repr(os.getenv("FEEDS_URL")))
+
+
 # ———— 配置 —————
 BOT_TOKEN     = os.getenv("BOT_TOKEN")
 CHAT_ID       = os.getenv("CHAT_ID")
