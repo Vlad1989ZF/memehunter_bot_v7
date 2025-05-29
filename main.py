@@ -34,8 +34,8 @@ def build_message(token):
     ], headers=["项目", "信息"], tablefmt="github")
 
     msg = (
-        f"🎯 发现潜力代币！"
-"
+print(f"💥发现潜力代币！")
+
         f"名称: {token.get('name')} (`{token.get('symbol')}`)
 
 "
