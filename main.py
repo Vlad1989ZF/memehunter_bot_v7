@@ -56,20 +56,13 @@ def build_message(item):
     website = socials.get("website", "")
 
     table = (
-        f"🏆 综合评分: *{score}/100*
-"
-        f"🔖 名称: {name} `{symbol}`
-"
-        f"💧 市值: {marketcap}    💰 流动性: {liquidity}
-"
-        f"👑 Top10 持有: {top10}
-"
-        f"🚫 销毁: {burned}    ❄️ 冻结: {frozen}
-"
-        f"🔑 无owner: {no_owner}
-
-"
-        f"🔗 社交 | {'[Twitter]('+twitter+')' if twitter else ''} | {'[Telegram]('+telegram+')' if telegram else ''} | {'[官网]('+website+')' if website else ''}"
+        f"🏆 综合评分: *{score}/100*\n"
+    f"🔖 名称: [{name}](https://www.google.com/search?q={symbol}) `{symbol}`\n"
+    f"💧 市值: {marketcap}    💰 流动性: {liquidity}\n"
+    f"👑 Top10 持有: {top10}\n"
+    f"🚫 销毁: {burned}    ❄️ 冻结: {frozen}\n"
+    f"🔑 无owner: {no_owner}\n\n"
+    f"🔗 社交 | [Twitter]({twitter}) | [Telegram]({telegram}) | [官网]({website})"
     )
     return table
 
