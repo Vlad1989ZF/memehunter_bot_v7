@@ -1,75 +1,108 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
 import time
 import requests
-from prettytable import PrettyTable
+import logging
 
-BOT_TOKEN = "7415348809:AAFsZdHeUffpdiEOfUuONEna72otR4m2G38"
-CHAT_ID = "6945714975"
-API_URL = "https://api-gateway-production-3b4d.up.railway.app/api/feeds"
+# ———— 配置 —————
+BOT_TOKEN = os.getenv("7415348809:AAFsZdHeUffpdiEOfUuONEna72otR4m2G38")
+CHAT_ID   = os.getenv("6945714975")
+FEEDS_URL = os.getenv("apigatewaydebugv2-production.up.railway.app/api/feeds")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 60))  # 秒
 
-pushed_symbols = set()
+if not all([BOT_TOKEN, CHAT_ID, FEEDS_URL]):
+    raise RuntimeError("需要设置 BOT_TOKEN、CHAT_ID、FEEDS_URL 三个环境变量")
 
-def fetch_tokens():
+BASE_TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+SEND_API = BASE_TELEGRAM_URL + "/sendMessage"
+
+# 日志
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("memehunter_bot_v7")
+
+# 用于去重
+sent_set = set()
+
+def fetch_feeds():
+    """从聚合接口拿数据"""
     try:
-        res = requests.get(API_URL, timeout=10)
-        res.raise_for_status()
-        data = res.json()
-        print(f"📌 接口返回 {len(data)} 条代币")
+        r = requests.get(FEEDS_URL, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        logger.info(f"接口返回 {len(data)} 条代币")
         return data
     except Exception as e:
-        print(f"❌ 抓取失败: {e}")
+        logger.warning(f"⚠️ 取接口失败: {e}")
         return []
 
-def format_message(token):
-    table = PrettyTable()
-    table.field_names = ["项目", "信息"]
-    table.align["项目"] = "l"
-    table.align["信息"] = "l"
-
-    table.add_row(["流动性", token.get("liquidity", "未知")])
-    table.add_row(["市值", token.get("marketcap", "未知")])
-    table.add_row(["Top10 持仓", token.get("top10_ratio", "未知")])
-    table.add_row(["是否烧毁", "✅" if token.get("burned") else "❌"])
-    table.add_row(["是否冻结", "✅" if token.get("frozen") else "❌"])
-    table.add_row(["无Owner", "✅" if token.get("no_owner") else "❌"])
-
-    msg = (
-        f"🎖️ 综合评分: {token.get('score', '未知')}/100\n"
-        f"📍代币: {token.get('name')} ({token.get('symbol')})\n\n"
-        f"{table}\n\n"
-        f"🔗 "
-        f"{'[Twitter](' + token['socials'].get('twitter') + ')  ' if token.get('socials', {}).get('twitter') else ''}"
-        f"{'[Telegram](' + token['socials'].get('telegram') + ')  ' if token.get('socials', {}).get('telegram') else ''}"
-        f"{'[官网](' + token['socials'].get('website') + ')' if token.get('socials', {}).get('website') else ''}"
+def build_message(item):
+    """根据单个 token 生成要推送的文本"""
+    # 评分
+    score = item.get("score", 0)
+    # 基本信息
+    name = item.get("name", "Unknown")
+    symbol = item.get("symbol", "")
+    marketcap = item.get("marketcap", "未知")
+    liquidity = item.get("liquidity", "未知")
+    top10 = item.get("top10_ratio", "未知")
+    burned = "✅" if item.get("burned") else "❌"
+    frozen = "✅" if item.get("frozen") else "❌"
+    no_owner = "✅" if item.get("no_owner") else "❌"
+    # 社交
+    socials = item.get("socials", {})
+    twitter = socials.get("twitter", "")
+    telegram = socials.get("telegram", "")
+    website = socials.get("website", "")
+    # 构建评分明细表格
+    table = (
+        f"🏆 综合评分: *{score}/100*\n"
+        f"🔖 名称: [{name}](https://www.google.com/search?q={symbol}) `{symbol}`\n"
+        f"💧 市值: {marketcap}    💰 流动性: {liquidity}\n"
+        f"👑 Top10 持有: {top10}\n"
+        f"🚫 销毁: {burned}    ❄️ 冻结: {frozen}\n"
+        f"🔑 无owner: {no_owner}\n\n"
+        f"🔗 社交 | [Twitter]({twitter}) | [Telegram]({telegram}) | [官网]({website})"
     )
-    return msg
+    return table
 
-def send_telegram(msg):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+def send_telegram(msg: str):
+    """调用 Telegram Bot API 发送消息"""
     payload = {
         "chat_id": CHAT_ID,
         "text": msg,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
+        "disable_web_page_preview": False
     }
     try:
-        res = requests.post(url, json=payload)
-        print(f"✅ 推送状态: {res.status_code}")
+        r = requests.post(SEND_API, json=payload, timeout=10)
+        r.raise_for_status()
+        logger.info("✅ 推送成功")
     except Exception as e:
-        print(f"❌ 推送失败: {e}")
+        logger.error(f"❌ 推送失败: {e} -- 数据: {msg[:50]}")
+
+def main_loop():
+    logger.info("🚀 MemeHunter Bot v7 启动")
+    while True:
+        feeds = fetch_feeds()
+        for item in feeds:
+            # 唯一标识：symbol+timestamp
+            key = f"{item.get('symbol')}_{item.get('timestamp')}"
+            if key in sent_set:
+                continue
+            # 只推送新的
+            sent_set.add(key)
+            msg = build_message(item)
+            send_telegram(msg)
+            time.sleep(1)  # 避免瞬间多条被 Telegram 拒
+        time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":
-    while True:
-        tokens = fetch_tokens()
-        for token in tokens:
-            symbol = token.get("symbol")
-            score = token.get("score", 0)
-            if symbol in pushed_symbols:
-                print(f"⏩ 跳过已推送代币: {symbol}")
-                continue
-            if score < 70:
-                print(f"⚠️ 跳过低分代币: {symbol} (得分 {score})")
-                continue
-            msg = format_message(token)
-            send_telegram(msg)
-            pushed_symbols.add(symbol)
-            print(f"🚀 推送完成: {symbol}")
-        time.sleep(120)
+    try:
+        main_loop()
+    except KeyboardInterrupt:
+        logger.info("程序手动退出")
+    except Exception:
+        logger.exception("未捕获异常，程序退出")
+
