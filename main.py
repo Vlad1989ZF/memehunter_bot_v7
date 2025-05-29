@@ -9,7 +9,7 @@ import logging
 # ———— 配置 —————
 BOT_TOKEN = os.getenv("7415348809:AAFsZdHeUffpdiEOfUuONEna72otR4m2G38")
 CHAT_ID   = os.getenv("6945714975")
-FEEDS_URL = os.getenv("apigatewaydebugv2-production.up.railway.app/api/feeds")
+FEEDS_URL = os.getenv("https://apigatewaydebugv2-production.up.railway.app/api/feeds")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 60))  # 秒
 
 if not all([BOT_TOKEN, CHAT_ID, FEEDS_URL]):
